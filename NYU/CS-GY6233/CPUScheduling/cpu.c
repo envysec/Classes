@@ -1,0 +1,443 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include "oslabs.h"
+
+/*
+ * Shift array left
+ */
+void remove_array_element(struct PCB ready_queue[QUEUEMAX], int* queue_cnt, int removal_index)
+{
+    int i;
+    for (i = removal_index; i < (*queue_cnt) - 1; i++)
+        ready_queue[i] = ready_queue[i+1];
+}
+
+/*
+ * If queue only has one process, return process
+ * else find highest priority process in queue
+ * returns index of highest priority process
+ */
+int find_next_process_pp(struct PCB ready_queue[QUEUEMAX], int *queue_cnt) {
+    int i, process_index;
+
+    //One process queue
+    if ((*queue_cnt) == 1)
+    return 0;
+    
+    //More than one process in queue
+    else
+    {
+    process_index = 0;
+
+    //Iterate through queue
+        for (i = 1; i < (*queue_cnt); i++)
+    {
+        //If priority is higher
+        if(ready_queue[process_index].process_priority >= ready_queue[i].process_priority)
+            process_index = i;
+        }
+
+    //Return index of next process
+    return process_index;
+    }
+}
+
+/*
+ * If queue only has one process, return process
+ * else find shortest burst process in queue
+ * returns index of shortest burst process
+ */
+int find_next_process_strp(struct PCB ready_queue[QUEUEMAX], int *queue_cnt)
+{
+    int i, process_index;
+
+    //One process queue
+    if ((*queue_cnt) == 1)
+    return 0;
+
+    //More than one process in queue
+    else
+    {
+        process_index = 0;
+
+    //Iterate through queue
+    for (i=1; i < (*queue_cnt); i++)
+    {
+            //If remaining burst is shorter
+        if(ready_queue[process_index].remaining_bursttime > ready_queue[i].remaining_bursttime)
+        process_index = i;
+    }
+    
+    //Return index of next process
+    return process_index;
+    }
+}
+
+/*
+ * If queue only has one process, return process
+ * else find earlist arrival time in queue
+ * returns index of earlist arrival process
+ */
+int find_next_process_rr(struct PCB ready_queue[QUEUEMAX], int *queue_cnt)
+{
+    int i, process_index;
+
+    //One process queue
+    if ((*queue_cnt) == 1)
+    return 0;
+    //More thna one process in queue
+    else
+    {
+        process_index = 0;
+
+    //Iterate through queue
+    for (i=1; i < (*queue_cnt); i++)
+    {
+        //If arrival time is earlier
+        if (ready_queue[process_index].arrival_timestamp <= ready_queue[i].arrival_timestamp)
+            process_index = i;
+    }
+
+    //Return index of next process
+    return process_index;
+    }
+}
+
+/*
+ * Checks if pcb is NULL
+ * Returns 1 if true 0 if false
+ */
+int isNULLpcb(struct PCB inpcb)
+{
+    if (inpcb.process_id == 0 && inpcb.arrival_timestamp == 0 && inpcb.total_bursttime== 0 && inpcb.execution_starttime == 0 && inpcb.execution_endtime == 0 && inpcb.remaining_bursttime == 0 && inpcb.process_priority == 0)
+        return 1;
+    else
+        return 0;
+}
+
+/*
+ *
+ */
+struct PCB handle_process_arrival_pp(struct PCB ready_queue[QUEUEMAX], int *queue_cnt, struct PCB current_process, struct PCB new_process, int timestamp)
+{
+    //If no current process exists 
+    if (isNULLpcb(current_process))
+    {
+    //Establish new process
+        new_process.execution_starttime = timestamp;
+    new_process.execution_endtime = timestamp + new_process.total_bursttime;
+    new_process.remaining_bursttime = new_process.total_bursttime;
+
+    //Return new process
+    return new_process;
+    }
+    //If new process has lower priority than current process
+    else if (new_process.process_priority >= current_process.process_priority)
+    {
+    //Establish new process
+        new_process.execution_starttime = 0;
+    new_process.execution_endtime = 0;
+    new_process.remaining_bursttime = new_process.total_bursttime;
+    
+    //Add new process to queue
+    ready_queue[*queue_cnt] = new_process;
+    (*queue_cnt)++;
+
+    //Return current process
+    return current_process;
+    }
+    //If current process has lower priority than new process
+    else
+    {
+        //Establish new process
+    new_process.execution_starttime = timestamp;
+    new_process.execution_endtime = timestamp + new_process.total_bursttime;
+    new_process.remaining_bursttime = new_process.total_bursttime;
+    
+    //Establish current process
+    current_process.execution_endtime = 0;
+    current_process.remaining_bursttime = new_process.total_bursttime;
+
+    //Add current process to queue
+    ready_queue[*queue_cnt] = current_process;
+    (*queue_cnt)++;
+
+    //Return new process
+    return new_process;
+    }
+}    
+
+/*
+ * Pseudocode
+ * If ready queue empty
+ *     return NULLPCB
+ * Else
+ *     Find PCB of process in ready queue with highest priority (smaller int = higher priority)
+ *     set exec start time to current time & execution end time = current time + burst
+ *     remove PCB from ready queue
+ */
+struct PCB handle_process_completion_pp(struct PCB ready_queue[QUEUEMAX], int *queue_cnt, int timestamp)
+{
+    struct PCB next_process;
+    if ((*queue_cnt) == 0)
+    {
+        //Set NULLPCB
+    next_process.process_id = 0;
+        next_process.arrival_timestamp = 0;
+    next_process.total_bursttime = 0;
+    next_process.execution_starttime = 0;
+    next_process.execution_endtime = 0;
+    next_process.remaining_bursttime = 0;
+    next_process.process_priority = 0;
+
+    //Return NULLPCB
+    return next_process;
+    }
+    else
+    {
+        //Find next process index
+        int next_process_index = find_next_process_pp(ready_queue, queue_cnt);
+        
+        //Set next process values
+    next_process.process_id = ready_queue[next_process_index].process_id;
+    next_process.arrival_timestamp = ready_queue[next_process_index].arrival_timestamp;
+        next_process.total_bursttime = ready_queue[next_process_index].total_bursttime;
+    next_process.execution_starttime = timestamp;
+    next_process.execution_endtime = timestamp + ready_queue[next_process_index].remaining_bursttime;
+    next_process.remaining_bursttime = ready_queue[next_process_index].remaining_bursttime;
+    next_process.process_priority = ready_queue[next_process_index].process_priority;
+
+    //Remove process from queue
+    remove_array_element(ready_queue, queue_cnt, next_process_index);
+    (*queue_cnt)--;
+
+    //Return next process PCB
+    return next_process;
+    }
+}
+
+/*
+ *  Pseudocode
+ *  If no current process
+ *      exec start time = timestamp
+ *      exec end time = timestamp + total burst
+ *      remaining burst = total burst
+ *      return new process
+ *  else if new process has longer burst time
+ *      new process added to ready_queue
+ *      new process exec start = timestamp
+ *      new process exec end = timestamp
+ *      return current process
+ *  else
+ *      current process exec start = 0
+ *      current process exec end = 0
+ *      current remaining burst = new total burst
+ *      current process added to ready_queue
+ *      new process exec start = timestamp
+ *      new process exec end = timestamp + total burst
+ *      new process remain burst = total burst
+ *      
+ *      return new process
+ */
+struct PCB handle_process_arrival_srtp(struct PCB ready_queue[QUEUEMAX], int *queue_cnt, struct PCB current_process, struct PCB new_process, int timestamp)
+{
+    //If no current process exists
+    if (isNULLpcb(current_process))
+    {
+    //Establish new process
+        new_process.execution_starttime = timestamp;
+        new_process.execution_endtime = timestamp + new_process.total_bursttime;
+    new_process.remaining_bursttime = new_process.total_bursttime;
+    
+    //Return new process
+    return new_process;
+    }
+    //If current process has a shorter burst time than new process
+    else if (new_process.remaining_bursttime >= current_process.total_bursttime)
+    {
+    //Establish new process
+        new_process.execution_starttime = 0;
+    new_process.execution_endtime = 0;
+    new_process.remaining_bursttime = new_process.total_bursttime;
+    
+    //Add new process to queue
+    ready_queue[*queue_cnt] = new_process;
+    (*queue_cnt)++;
+
+    //Return current process
+    return current_process;
+    }
+    //If new process has a shorter burst time than current process
+    else
+    {
+    //Establish new process
+    new_process.execution_starttime = timestamp;
+    new_process.execution_endtime = timestamp + new_process.total_bursttime;
+    new_process.remaining_bursttime = new_process.total_bursttime;
+
+    //Adjust current process
+    current_process.execution_starttime = 0;
+    current_process.execution_endtime = 0;
+    current_process.remaining_bursttime = new_process.total_bursttime;
+
+    //Add current process to queue
+    ready_queue[*queue_cnt] = current_process;
+    (*queue_cnt)++;
+
+    //Return new process
+    return new_process;
+    }
+}
+
+/*
+ *  If queue is empty
+ *      return NULLPCB
+ *  Else
+ *      finds the PCB in queue with smallest remaining burst time
+ *      exec start = timestamp
+ *      exec end = timestamp + remaining burst
+ *      remove from queue
+ *      return new process
+ */
+struct PCB handle_process_completion_srtp(struct PCB ready_queue[QUEUEMAX], int *queue_cnt, int timestamp)
+{
+    struct PCB next_process;
+    
+    //If queue is empty
+    if ((*queue_cnt) == 0)
+    {
+        //Set NULLPCB
+        next_process.process_id = 0;
+    next_process.arrival_timestamp = 0;
+    next_process.total_bursttime = 0;
+    next_process.execution_starttime = 0;
+    next_process.execution_endtime = 0;
+    next_process.remaining_bursttime = 0;
+    next_process.process_priority = 0;
+
+    //return NULLPCB
+    return next_process;
+    }
+    else
+    {
+    //Find index of next process
+        int next_process_index = find_next_process_strp(ready_queue, queue_cnt);
+
+    //Establish new process
+    next_process.process_id = ready_queue[next_process_index].process_id;
+    next_process.arrival_timestamp = ready_queue[next_process_index].arrival_timestamp;
+    next_process.total_bursttime = ready_queue[next_process_index].total_bursttime;
+    next_process.execution_starttime = timestamp;
+    next_process.execution_endtime = timestamp + ready_queue[next_process_index].remaining_bursttime;
+    next_process.remaining_bursttime = ready_queue[next_process_index].remaining_bursttime;
+    next_process.process_priority = ready_queue[next_process_index].process_priority;
+
+    //Remove from queue
+    remove_array_element(ready_queue, queue_cnt, next_process_index);
+    (*queue_cnt)--;
+
+    //Return new process
+    return next_process;
+    }
+
+}
+
+/*
+ * If no current process
+ *     exec start = timestamp
+ *     exec end = timestamp + min(time quantum, total burst)
+ *     remaining burst = total burst
+ *     return new process
+ * else
+ *     Add new process to queue
+ *     exec start = 0
+ *     exec end = 0
+ *     remaining burst time = total burst
+ *     return current
+ */
+struct PCB handle_process_arrival_rr(struct PCB ready_queue[QUEUEMAX], int *queue_cnt, struct PCB current_process, struct PCB new_process, int timestamp, int time_quantum)
+{
+    if (isNULLpcb(current_process))
+    {
+    //Establish new process
+    new_process.execution_starttime = timestamp;
+        if (new_process.total_bursttime > time_quantum)
+        new_process.execution_endtime = timestamp + time_quantum;
+        else
+        new_process.execution_endtime = timestamp + new_process.total_bursttime;
+
+        new_process.remaining_bursttime = new_process.total_bursttime;
+
+    //Return new process
+    return new_process;
+    }
+    else
+    {
+    //Establish new process
+        new_process.execution_starttime = 0;
+    new_process.execution_endtime = 0;
+    new_process.remaining_bursttime = new_process.total_bursttime;
+        
+    //Add to queue
+    ready_queue[*queue_cnt] = new_process;
+    (*queue_cnt)++;
+
+    //Return current process
+    return current_process;
+    }
+}
+
+/*
+ * If queue empty
+ *     return NULLPCB
+ * else
+ *     Find process with earliest arrival time
+ *     exec start = timestamp
+ *     exec end = timestamp + min(quantum,remaining burst)
+ */
+struct PCB handle_process_completion_rr(struct PCB ready_queue[QUEUEMAX], int *queue_cnt, int timestamp, int time_quantum)
+{
+    struct PCB next_process;
+
+    if ((*queue_cnt) == 0)
+    {
+        //Establish NULLPCB
+        next_process.process_id = 0;
+    next_process.arrival_timestamp = 0;
+    next_process.total_bursttime = 0;
+    next_process.execution_starttime = 0;
+    next_process.execution_endtime = 0;
+    next_process.remaining_bursttime = 0;
+    next_process.process_priority = 0;
+
+    //Return NULLPCB
+    return next_process;
+    }
+    else
+    {
+    //Find index of next process
+        int next_process_index = find_next_process_rr(ready_queue, queue_cnt);
+
+    //Establish next process
+    next_process.process_id = ready_queue[next_process_index].process_id;
+    next_process.arrival_timestamp = ready_queue[next_process_index].arrival_timestamp;
+    next_process.total_bursttime = ready_queue[next_process_index].total_bursttime;
+    next_process.execution_starttime = timestamp;
+    next_process.remaining_bursttime = ready_queue[next_process_index].remaining_bursttime;
+    if (next_process.remaining_bursttime > time_quantum)
+        next_process.execution_endtime = time_quantum;
+    else
+        next_process.execution_endtime = next_process.remaining_bursttime;
+    next_process.process_priority = ready_queue[next_process_index].process_priority;
+
+    //Remove from queue
+    remove_array_element(ready_queue, queue_cnt, next_process_index);
+    (*queue_cnt)--;
+        
+
+    //Return next process
+    return next_process;
+    }
+}
+
+
